@@ -287,10 +287,16 @@ jobs:
         run: |
           node scripts/release-evidence.mjs
 
+      - name: Normalize artifact name
+        id: artifact-name
+        run: |
+          SAFE_TAG="$(echo '${{ inputs.rc_tag }}' | tr '/' '-')"
+          echo "value=${SAFE_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Upload RC evidence artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-evidence-${{ inputs.rc_tag }}
+          name: release-evidence-${{ steps.artifact-name.outputs.value }}
           path: |
             release-evidence.json
             release-summary.md
