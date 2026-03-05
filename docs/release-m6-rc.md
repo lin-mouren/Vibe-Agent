@@ -112,3 +112,9 @@ gh workflow run release-rc.yml \
   -f rc_tag=rc/m6-20260306.2 \
   -f run_openai_canary=true
 ```
+
+Or use built-in retry helper (handles transient dispatch 500 with backoff):
+
+```bash
+pnpm release:rc:dispatch-retry -- --rc-tag rc/m6-20260306.2 --run-openai-canary true --attempts 6 --sleep-seconds 30
+```

@@ -18,6 +18,7 @@
     "test:smoke:all": "node scripts/smoke-all-local.mjs",
     "release:rc:check": "pnpm typecheck && pnpm test && pnpm build && pnpm test:smoke:m3 && pnpm test:smoke:m4 && pnpm test:smoke:m5",
     "release:rc:evidence": "node scripts/release-evidence.mjs",
+    "release:rc:dispatch-retry": "node scripts/release-rc-dispatch-retry.mjs",
     "db:push": "pnpm --filter @frame2/api run prisma:dbpush",
     "db:seed": "pnpm build:shared && pnpm --filter @frame2/api run seed"
   },

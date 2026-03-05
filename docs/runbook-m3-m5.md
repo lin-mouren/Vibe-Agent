@@ -99,3 +99,8 @@ gh workflow run release-rc.yml \
   -f rc_tag=rc/m6-YYYYMMDD.N \
   -f run_openai_canary=true
 ```
+
+Retry helper for dispatch 500 / EOF windows:
+```bash
+pnpm release:rc:dispatch-retry -- --rc-tag rc/m6-YYYYMMDD.N --run-openai-canary true --attempts 6 --sleep-seconds 30
+```
