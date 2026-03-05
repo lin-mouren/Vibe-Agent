@@ -82,13 +82,14 @@ test "$(git rev-parse origin/main)" = "$(git rev-parse upstream/main)"
 ```
 
 ## RC record template
-Record each RC in this section after gate succeeds:
+Record each RC in this section after gate succeeds.
 
-- RC tag:
-- Commit SHA:
-- Workflow run URL:
-- Evidence artifact name:
-- OpenAI canary status:
-- Rollback rehearsal result:
-- Mirror governance result:
-
+### RC `rc/m6-20260305.1`
+- RC tag: `rc/m6-20260305.1`
+- Commit SHA: `16d6326cda0db5c2b6990dc8389c9aae9c7f57cc`
+- Workflow run URL: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22726651954
+- Evidence artifact name: `release-evidence-rc-m6-20260305.1`
+- Evidence artifact API URL: https://api.github.com/repos/lin-mouren/Vibe-Agent/actions/artifacts/5783012285
+- OpenAI canary status: `not_requested`
+- Rollback rehearsal result: `pass` (in workflow step `Rollback drill rehearsal`)
+- Mirror governance result: `pass` (`origin/main == upstream/main` in workflow step `Mirror governance check`)
