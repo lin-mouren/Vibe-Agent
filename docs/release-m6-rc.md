@@ -98,5 +98,17 @@ Record each RC in this section after gate succeeds.
 - RC tag: `rc/m6-20260306.1` (not created yet)
 - Workflow run URL: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22727390920
 - Input: `run_openai_canary=true`
-- Current status: `in_progress` (optional canary job queued)
+- Canary job status: `failed` (reason: `The job was not acquired by Runner of type hosted even after multiple attempts`)
+- Workflow overall status: `queued` (publish-evidence job blocked by runner queue in this run window)
 - Notes: this run is for optional provider validation and does not block M6 GO decision.
+
+### Canary retry note
+When GitHub hosted runner capacity recovers, retry with:
+
+```bash
+gh workflow run release-rc.yml \
+  --repo lin-mouren/Vibe-Agent \
+  --ref work/main \
+  -f rc_tag=rc/m6-20260306.2 \
+  -f run_openai_canary=true
+```

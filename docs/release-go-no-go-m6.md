@@ -24,19 +24,20 @@ Required gate evidence is green from:
 - A follow-up canary run has been triggered:
   - Run: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22727390920
   - Input: `run_openai_canary=true`
-  - Status at this report time: `in_progress` (`RC Gate (Optional OpenAI Canary)` queued on runner)
+  - Canary job result: `failed` due GitHub hosted runner acquisition issue.
+  - Message: `The job was not acquired by Runner of type hosted even after multiple attempts`
+  - Overall run status in this window: `queued` (publish-evidence waiting for runner)
 - Policy note: this canary is optional and non-blocking for M6 GO decision.
 
 ## Risks
 1. External provider availability remains variable.
-2. Optional canary result is pending due GitHub runner queue delay.
+2. Optional canary is impacted by GitHub runner availability during this window.
 
 ## Mitigations
 1. Keep mock path as mandatory gate for deterministic release closure.
-2. Record canary outcome when run finishes; if failed, create follow-up issue without reopening M6 GO.
+2. Retry canary in a new run after runner availability recovers; if still failed, create follow-up issue without reopening M6 GO.
 
 ## Post-GO actions
 1. Keep `main` mirror-only and continue development on `work/main`.
 2. Use `docs/release-m6-rc.md` as authoritative RC ledger.
 3. For next milestone, decide whether OpenAI canary should become blocking.
-

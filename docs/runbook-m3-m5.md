@@ -87,3 +87,14 @@ git push origin rc/m6-YYYYMMDD.N
 
 Detailed release closure guide:
 - `docs/release-m6-rc.md`
+
+Canary troubleshooting (non-blocking in M6):
+- If `RC Gate (Optional OpenAI Canary)` fails with runner acquisition issues (e.g. hosted runner not acquired), do not block M6 GO.
+- Record the incident in release docs and retrigger a canary-only validation run later:
+```bash
+gh workflow run release-rc.yml \
+  --repo lin-mouren/Vibe-Agent \
+  --ref work/main \
+  -f rc_tag=rc/m6-YYYYMMDD.N \
+  -f run_openai_canary=true
+```
