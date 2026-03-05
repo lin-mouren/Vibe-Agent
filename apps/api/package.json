@@ -1,0 +1,32 @@
+{
+  "name": "@frame2/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run build && node --test dist/src/app.test.js",
+    "prisma:generate": "prisma generate",
+    "prisma:dbpush": "prisma db push",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.658.1",
+    "@frame2/shared": "workspace:*",
+    "@prisma/client": "^5.20.0",
+    "bullmq": "^5.21.0",
+    "fastify": "^5.0.0",
+    "@fastify/cors": "^10.0.0",
+    "ioredis": "^5.4.1",
+    "uuid": "^11.0.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.7.4"
+  }
+}
