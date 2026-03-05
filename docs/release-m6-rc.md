@@ -93,3 +93,10 @@ Record each RC in this section after gate succeeds.
 - OpenAI canary status: `not_requested`
 - Rollback rehearsal result: `pass` (in workflow step `Rollback drill rehearsal`)
 - Mirror governance result: `pass` (`origin/main == upstream/main` in workflow step `Mirror governance check`)
+
+### RC `rc/m6-20260306.1` (canary follow-up, optional)
+- RC tag: `rc/m6-20260306.1` (not created yet)
+- Workflow run URL: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22727390920
+- Input: `run_openai_canary=true`
+- Current status: `in_progress` (optional canary job queued)
+- Notes: this run is for optional provider validation and does not block M6 GO decision.
