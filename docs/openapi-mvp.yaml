@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  title: Frame-2 MVP API
+  version: 0.3.0
+servers:
+  - url: http://localhost:4000
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: ok
+  /healthz/details:
+    get:
+      summary: Dependency health check (db/redis/storage)
+      responses:
+        "200":
+          description: all dependencies healthy
+        "503":
+          description: dependency unhealthy
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: text/plain metrics
+  /v1/canvases/{id}:
+    get:
+      summary: Get canvas snapshot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: canvas snapshot
+  /v1/canvases/{id}/nodes:
+    post:
+      summary: Create node
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: node created
+  /v1/nodes/{id}:
+    patch:
+      summary: Patch node config/position/status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: node patched
+        "404":
+          description: node not found
+  /v1/canvases/{id}/edges:
+    post:
+      summary: Create edge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: edge created
+  /v1/nodes/{id}/renders:
+    get:
+      summary: List renders by node with optional filters
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: executionId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [createdAt:desc, createdAt:asc]
+      responses:
+        "200":
+          description: list of render records
+  /v1/executions:
+    post:
+      summary: Start execution (supports idempotencyKey and options.maxParallel)
+      responses:
+        "200":
+          description: execution queued/running
+  /v1/executions/{id}:
+    get:
+      summary: Get execution summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: execution details
+  /v1/executions/{id}/retry-failed:
+    post:
+      summary: Retry failed jobs in execution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: retry accepted
+  /v1/executions/{id}/cancel:
+    post:
+      summary: Cancel execution and pending jobs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: canceled
+  /v1/renders/{id}/highres:
+    post:
+      summary: Enqueue high-res generation for a render
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: job accepted or existing result returned
+    get:
+      summary: Download latest high-res artifact for selected render
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: image attachment
+        "409":
+          description: high-res generation still running
+        "404":
+          description: render or high-res artifact not found
+  /v1/renders/{id}/highres/status:
+    get:
+      summary: Get high-res job status for a render
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: status payload with optional downloadUrl
+  /v1/events:
+    get:
+      summary: SSE stream by canvas (supports Last-Event-ID replay)
+      parameters:
+        - name: canvasId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: text/event-stream
+  /v1/exports:
+    post:
+      summary: Request ZIP export
+      responses:
+        "200":
+          description: export requested
+  /v1/exports/{id}:
+    get:
+      summary: Get export status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: export status
+  /v1/exports/{id}/download:
+    get:
+      summary: Download export ZIP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: zip attachment

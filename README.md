@@ -33,3 +33,29 @@ B站课程专栏：[VibeAgent](https://www.bilibili.com/cheese/play/ss411001493)
 - ### 4.NanoBananaPro神级应用2：影视分镜终极解决方案
   ![Image 4](screen-master.png)
 - [aistudio工程仓库](https://aistudio.google.com/apps/drive/1ZfAW7_gZz8T7X73W82p3ZHUPLkenU7se?showPreview=true&showAssistant=true&fullscreenApplet=true)
+
+## Frame-2 Monorepo (M0-M5)
+
+### 本地运行
+```bash
+pnpm install
+pnpm --filter @frame2/api prisma:generate
+pnpm db:push
+pnpm db:seed
+pnpm dev
+```
+
+### 验证命令
+```bash
+pnpm typecheck
+pnpm test
+pnpm test:smoke:m3
+pnpm test:smoke:m4
+pnpm test:smoke:m5
+pnpm test:smoke:all
+```
+
+更多说明见：
+- `docs/runbook-local.md`
+- `docs/runbook-m3-m5.md`
+- `docs/architecture-m3-m5.md`

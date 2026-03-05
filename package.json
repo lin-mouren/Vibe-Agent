@@ -1,0 +1,25 @@
+{
+  "name": "frame2-studio-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build:shared": "pnpm --filter @frame2/shared run build",
+    "dev": "pnpm build:shared && pnpm -r --parallel --if-present run dev",
+    "build": "pnpm build:shared && pnpm --filter @frame2/api run build && pnpm --filter @frame2/worker run build && pnpm --filter @frame2/web run build",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm build:shared && pnpm -r --if-present run typecheck",
+    "test": "pnpm build:shared && pnpm -r --if-present run test",
+    "test:api": "pnpm --filter @frame2/api run test",
+    "test:worker": "pnpm --filter @frame2/worker run test",
+    "test:smoke:m3": "node scripts/smoke-m3.mjs",
+    "test:smoke:m4": "node scripts/smoke-m4.mjs",
+    "test:smoke:m5": "node scripts/smoke-m5.mjs",
+    "test:smoke:all": "node scripts/smoke-all-local.mjs",
+    "db:push": "pnpm --filter @frame2/api run prisma:dbpush",
+    "db:seed": "pnpm build:shared && pnpm --filter @frame2/api run seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

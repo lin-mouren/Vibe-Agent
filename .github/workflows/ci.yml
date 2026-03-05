@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [work/main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: frame2
+          POSTGRES_PASSWORD: frame2
+          POSTGRES_DB: frame2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U frame2 -d frame2"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://frame2:frame2@localhost:5432/frame2?schema=public
+      REDIS_URL: redis://localhost:6379
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_DIR: ./.data/storage
+      API_HOST: 127.0.0.1
+      API_PORT: 4000
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000
+      NEXT_PUBLIC_DEFAULT_CANVAS_ID: 00000000-0000-0000-0000-000000000001
+      IMAGE_PROVIDER: mock
+      IMAGE_PROVIDER_FALLBACK_TO_MOCK: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @frame2/api prisma:generate
+
+      - name: Push DB schema
+        run: pnpm db:push
+
+      - name: Seed DB
+        run: pnpm db:seed
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Dependency audit (baseline)
+        run: pnpm audit --audit-level high || true
+
+      - name: Start API and Worker
+        run: |
+          mkdir -p .workbench
+          node apps/api/dist/src/index.js > .workbench/api.log 2>&1 &
+          node apps/worker/dist/index.js > .workbench/worker.log 2>&1 &
+
+      - name: Wait for API
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:4000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to become ready"
+          exit 1
+
+      - name: Smoke M3
+        run: pnpm test:smoke:m3
+
+      - name: Smoke M4
+        run: pnpm test:smoke:m4
+
+      - name: Smoke M5
+        run: pnpm test:smoke:m5
+
+      - name: Dump runtime logs on failure
+        if: failure()
+        run: |
+          echo "===== API LOG ====="
+          cat .workbench/api.log || true
+          echo "===== WORKER LOG ====="
+          cat .workbench/worker.log || true
