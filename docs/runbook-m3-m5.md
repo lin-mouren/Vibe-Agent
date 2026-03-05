@@ -90,6 +90,7 @@ Detailed release closure guide:
 
 Canary troubleshooting (non-blocking in M6):
 - If `RC Gate (Optional OpenAI Canary)` fails with runner acquisition issues (e.g. hosted runner not acquired), do not block M6 GO.
+- If workflow dispatch returns HTTP 500 from GitHub API, treat it as platform transient and retry later (do not mutate release conclusion based on dispatch infrastructure errors).
 - Record the incident in release docs and retrigger a canary-only validation run later:
 ```bash
 gh workflow run release-rc.yml \
