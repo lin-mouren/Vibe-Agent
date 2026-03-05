@@ -50,7 +50,8 @@ git rev-parse upstream/main
 
 ```bash
 set -euo pipefail
-git fetch --prune origin upstream
+git fetch --prune origin
+git fetch --prune upstream
 git switch main
 git merge --ff-only upstream/main
 git push origin main
@@ -103,7 +104,8 @@ gh secret set MIRROR_TOKEN --repo lin-mouren/Vibe-Agent --body '<your-token>'
 
 ```bash
 set -euo pipefail
-git fetch --prune origin upstream
+git fetch --prune origin
+git fetch --prune upstream
 git rev-list --left-right --count origin/main...upstream/main
 git log --oneline --graph --decorate --left-right origin/main...upstream/main
 ```
@@ -121,7 +123,8 @@ Preconditions in GitHub settings:
 
 ```bash
 set -euo pipefail
-git fetch --prune origin upstream
+git fetch --prune origin
+git fetch --prune upstream
 OLD="$(git rev-parse origin/main)"
 NEW="$(git rev-parse upstream/main)"
 
@@ -132,6 +135,7 @@ git push --force-with-lease=refs/heads/main:${OLD} origin ${NEW}:refs/heads/main
 ## Acceptance checks
 
 ```bash
-git fetch --prune origin upstream
+git fetch --prune origin
+git fetch --prune upstream
 test "$(git rev-parse origin/main)" = "$(git rev-parse upstream/main)"
 ```
