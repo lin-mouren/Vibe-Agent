@@ -1,0 +1,306 @@
+name: Release RC
+
+on:
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: "RC tag to be created manually after gate passes (format: rc/m6-YYYYMMDD.N)"
+        required: true
+        type: string
+      run_openai_canary:
+        description: "Run optional OpenAI connectivity canary"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-rc-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  gate-mock:
+    name: RC Gate (Mock Required)
+    runs-on: ubuntu-latest
+    outputs:
+      mirror_status: ${{ steps.mirror-check.outputs.status }}
+      rollback_status: ${{ steps.rollback-drill.outputs.status }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: frame2
+          POSTGRES_PASSWORD: frame2
+          POSTGRES_DB: frame2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U frame2 -d frame2"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://frame2:frame2@localhost:5432/frame2?schema=public
+      REDIS_URL: redis://localhost:6379
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_DIR: ./.data/storage
+      API_HOST: 127.0.0.1
+      API_PORT: 4000
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000
+      NEXT_PUBLIC_DEFAULT_CANVAS_ID: 00000000-0000-0000-0000-000000000001
+      IMAGE_PROVIDER: mock
+      IMAGE_PROVIDER_FALLBACK_TO_MOCK: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assert branch and tag format
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" != "work/main" ]; then
+            echo "release-rc must run on work/main, got: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          if ! echo "${{ inputs.rc_tag }}" | grep -Eq '^rc/m6-[0-9]{8}\.[0-9]+$'; then
+            echo "Invalid rc_tag format: ${{ inputs.rc_tag }}"
+            echo "Expected: rc/m6-YYYYMMDD.N"
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @frame2/api prisma:generate
+
+      - name: Prepare DB
+        run: |
+          pnpm db:push
+          pnpm db:seed
+
+      - name: Gate checks (type/test/build)
+        run: |
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Start API and Worker
+        run: |
+          mkdir -p .workbench
+          node apps/api/dist/src/index.js > .workbench/api.log 2>&1 &
+          node apps/worker/dist/index.js > .workbench/worker.log 2>&1 &
+
+      - name: Wait for API
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:4000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to become ready"
+          exit 1
+
+      - name: Smoke checks (M3/M4/M5)
+        run: |
+          pnpm test:smoke:m3
+          pnpm test:smoke:m4
+          pnpm test:smoke:m5
+
+      - name: Rollback drill rehearsal
+        id: rollback-drill
+        run: |
+          set -euo pipefail
+          ROLLBACK_CANDIDATE="$(git rev-parse HEAD~1)"
+          echo "Rollback candidate: ${ROLLBACK_CANDIDATE}"
+          pnpm --filter @frame2/api prisma:generate
+          pnpm db:push
+          pnpm db:seed
+          pnpm test:smoke:m3
+          echo "status=pass" >> "$GITHUB_OUTPUT"
+          echo "candidate=${ROLLBACK_CANDIDATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Mirror governance check
+        id: mirror-check
+        run: |
+          set -euo pipefail
+          ORIGIN_MAIN_SHA="$(git ls-remote https://github.com/lin-mouren/Vibe-Agent.git refs/heads/main | awk '{print $1}')"
+          UPSTREAM_MAIN_SHA="$(git ls-remote https://github.com/yuyou-dev/Vibe-Agent.git refs/heads/main | awk '{print $1}')"
+          echo "origin_main_sha=${ORIGIN_MAIN_SHA}" >> "$GITHUB_OUTPUT"
+          echo "upstream_main_sha=${UPSTREAM_MAIN_SHA}" >> "$GITHUB_OUTPUT"
+          if [ -z "${ORIGIN_MAIN_SHA}" ] || [ -z "${UPSTREAM_MAIN_SHA}" ]; then
+            echo "Unable to resolve origin/upstream main SHA"
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if [ "${ORIGIN_MAIN_SHA}" != "${UPSTREAM_MAIN_SHA}" ]; then
+            echo "origin/main is not mirrored with upstream/main"
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "status=pass" >> "$GITHUB_OUTPUT"
+
+      - name: Dump runtime logs on failure
+        if: failure()
+        run: |
+          echo "===== API LOG ====="
+          cat .workbench/api.log || true
+          echo "===== WORKER LOG ====="
+          cat .workbench/worker.log || true
+
+  gate-openai-canary:
+    name: RC Gate (Optional OpenAI Canary)
+    needs: gate-mock
+    if: ${{ inputs.run_openai_canary }}
+    runs-on: ubuntu-latest
+    outputs:
+      canary_status: ${{ steps.finalize.outputs.status }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check OpenAI key presence
+        id: key-check
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${OPENAI_API_KEY:-}" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::OPENAI_API_KEY is missing, skip OpenAI canary."
+          fi
+
+      - name: Run OpenAI connectivity canary
+        id: canary
+        if: ${{ steps.key-check.outputs.should_run == 'true' }}
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+        run: |
+          node -e '
+          const base = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+          const key = process.env.OPENAI_API_KEY || "";
+          const url = `${base}/models`;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000);
+          fetch(url, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${key}` },
+            signal: controller.signal
+          }).then(async (res) => {
+            clearTimeout(timeout);
+            if (!res.ok) {
+              const body = await res.text();
+              throw new Error(`OpenAI canary failed: ${res.status} ${body.slice(0, 300)}`);
+            }
+            const json = await res.json();
+            const count = Array.isArray(json.data) ? json.data.length : 0;
+            console.log(JSON.stringify({ ok: true, endpoint: url, models: count }));
+          }).catch((err) => {
+            clearTimeout(timeout);
+            console.error(err.message);
+            process.exit(1);
+          });
+          '
+
+      - name: Finalize canary result
+        id: finalize
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.key-check.outputs.should_run }}" != "true" ]; then
+            echo "status=skipped_no_key" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.canary.outcome }}" = "success" ]; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "::warning::OpenAI canary failed (non-blocking)."
+          fi
+
+  publish-evidence:
+    name: Publish RC Evidence
+    needs:
+      - gate-mock
+      - gate-openai-canary
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build release evidence files
+        env:
+          RC_TAG: ${{ inputs.rc_tag }}
+          RUN_OPENAI_CANARY: ${{ inputs.run_openai_canary }}
+          GATE_MOCK_RESULT: ${{ needs.gate-mock.result }}
+          OPENAI_CANARY_STATUS: ${{ needs.gate-openai-canary.outputs.canary_status }}
+          MIRROR_CHECK_RESULT: ${{ needs.gate-mock.outputs.mirror_status }}
+          ROLLBACK_DRILL_RESULT: ${{ needs.gate-mock.outputs.rollback_status }}
+        run: |
+          node scripts/release-evidence.mjs
+
+      - name: Upload RC evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ inputs.rc_tag }}
+          path: |
+            release-evidence.json
+            release-summary.md
+
+      - name: Append release summary to job summary
+        run: |
+          cat release-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce strict gate
+        if: ${{ needs.gate-mock.result != 'success' }}
+        run: |
+          echo "Mock required gate failed."
+          exit 1

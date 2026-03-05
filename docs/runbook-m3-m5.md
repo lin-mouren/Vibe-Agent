@@ -55,3 +55,35 @@ pnpm db:seed
 ## Break-glass note
 - `main` remains mirror-only and must not receive feature commits.
 - Any `main` history rewrite follows `docs/git-mirror-runbook.md` break-glass only.
+
+## M6 RC release closure (strict gate)
+Gate workflow:
+```bash
+gh workflow run release-rc.yml \
+  --repo lin-mouren/Vibe-Agent \
+  --ref work/main \
+  -f rc_tag=rc/m6-YYYYMMDD.N \
+  -f run_openai_canary=false
+```
+
+Local equivalent gate:
+```bash
+pnpm release:rc:check
+```
+
+Generate local audit files:
+```bash
+RC_TAG=rc/m6-YYYYMMDD.N pnpm release:rc:evidence
+```
+
+After gate pass, create RC tag manually on `work/main`:
+```bash
+git fetch --prune origin
+git switch work/main
+git pull --rebase origin work/main
+git tag -a rc/m6-YYYYMMDD.N -m "M6 RC gate passed"
+git push origin rc/m6-YYYYMMDD.N
+```
+
+Detailed release closure guide:
+- `docs/release-m6-rc.md`

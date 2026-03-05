@@ -11,3 +11,5 @@ coverage
 .workbench
 .data
 *.tsbuildinfo
+release-evidence.json
+release-summary.md
