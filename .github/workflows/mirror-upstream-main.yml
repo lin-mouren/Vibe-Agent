@@ -1,0 +1,72 @@
+name: Mirror upstream/main to origin/main
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout origin/main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.MIRROR_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "mirror-bot"
+          git config user.email "mirror-bot@users.noreply.github.com"
+
+      - name: Configure upstream remote
+        run: |
+          if git remote get-url upstream >/dev/null 2>&1; then
+            git remote set-url upstream https://github.com/yuyou-dev/Vibe-Agent.git
+          else
+            git remote add upstream https://github.com/yuyou-dev/Vibe-Agent.git
+          fi
+          git remote set-url --push upstream DISABLED
+
+      - name: Fetch origin/upstream main
+        run: |
+          git fetch --prune origin main
+          git fetch --prune upstream main
+
+      - name: Verify fast-forward only
+        id: verify
+        run: |
+          ORIGIN_SHA="$(git rev-parse origin/main)"
+          UPSTREAM_SHA="$(git rev-parse upstream/main)"
+          echo "origin_sha=$ORIGIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
+
+          if [ "$ORIGIN_SHA" = "$UPSTREAM_SHA" ]; then
+            echo "status=already_synced" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor origin/main upstream/main; then
+            echo "status=ff_possible" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=diverged" >> "$GITHUB_OUTPUT"
+            echo "ERROR: origin/main diverged from upstream/main. Break-glass required."
+            git log --oneline --left-right origin/main...upstream/main | head -n 50
+            exit 1
+          fi
+
+      - name: Fast-forward and push
+        if: steps.verify.outputs.status == 'ff_possible'
+        run: |
+          git switch -C main origin/main
+          git merge --ff-only upstream/main
+          git push origin main
