@@ -4,6 +4,7 @@
 - `main`: mirror-only branch. No local development or PR merges.
 - `work/main`: integration/deploy branch for all custom changes.
 - `feature/*`: short-lived branches that open PRs into `work/main`.
+- Repository default branch: `work/main` (required so scheduled workflow runs without modifying mirror-only `main`).
 
 ## One-time setup
 
@@ -89,6 +90,12 @@ gh pr create --base work/main --head feature/<topic> --fill
 - Secret required: `MIRROR_TOKEN`
 - Recommended token: fine-grained PAT with `Contents: Read and write` on `lin-mouren/Vibe-Agent`
 - If upstream repo is private: token also needs read access to `yuyou-dev/Vibe-Agent`
+
+Set the secret:
+
+```bash
+gh secret set MIRROR_TOKEN --repo lin-mouren/Vibe-Agent --body '<your-token>'
+```
 
 ## Break-glass (only when ff-only fails)
 
