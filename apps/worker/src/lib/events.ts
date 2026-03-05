@@ -15,5 +15,19 @@ export async function publishCanvasEvent<TPayload extends Record<string, unknown
     ts: new Date().toISOString(),
     payload
   };
-  await redisPub.publish(`${REDIS_EVENTS_CHANNEL_PREFIX}:${canvasId}`, JSON.stringify(event));
+
+  try {
+    await redisPub.publish(`${REDIS_EVENTS_CHANNEL_PREFIX}:${canvasId}`, JSON.stringify(event));
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        message: "event.publish.failed",
+        canvasId,
+        type,
+        redisStatus: redisPub.status,
+        error: error instanceof Error ? error.message : "unknown"
+      })
+    );
+  }
 }

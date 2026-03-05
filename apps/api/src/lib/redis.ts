@@ -9,7 +9,11 @@ const redisOptions = {
 };
 
 export const redis = new IORedis(env.REDIS_URL, redisOptions);
-export const redisPub = new IORedis(env.REDIS_URL, redisOptions);
+export const redisPub = new IORedis(env.REDIS_URL, {
+  ...redisOptions,
+  enableOfflineQueue: true,
+  retryStrategy: (attempt: number) => Math.min(200 * Math.max(1, attempt), 2000)
+});
 
 export function createRedisSub() {
   return new IORedis(env.REDIS_URL, redisOptions);
