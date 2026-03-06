@@ -10,3 +10,8 @@ const redisOptions = {
 
 export const redis = new IORedis(env.REDIS_URL, redisOptions);
 export const redisPub = new IORedis(env.REDIS_URL, redisOptions);
+
+export function closeRedisClients() {
+  redis.disconnect();
+  redisPub.disconnect();
+}

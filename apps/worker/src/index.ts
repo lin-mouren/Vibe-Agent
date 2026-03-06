@@ -12,6 +12,7 @@ import {
   ProviderError
 } from "./lib/image-provider.js";
 import { prisma } from "./lib/prisma.js";
+import { closeRedisClients } from "./lib/redis.js";
 import { ensureStorage, getObjectBuffer, putObject } from "./lib/s3.js";
 
 const activeJobStatuses: JobStatus[] = [JobStatus.WAITING, JobStatus.RUNNING, JobStatus.RETRYING];
@@ -485,7 +486,7 @@ const worker = new Worker(
   { connection: queueConnection, concurrency: 4 }
 );
 
-new QueueEvents(REDIS_QUEUE_NAME, { connection: queueConnection });
+const queueEvents = new QueueEvents(REDIS_QUEUE_NAME, { connection: queueConnection });
 
 worker.on("failed", (job, error) => {
   logStructured("queue.job.failed", {
@@ -496,4 +497,60 @@ worker.on("failed", (job, error) => {
 
 worker.on("ready", () => {
   logStructured("worker.ready", { concurrency: 4 });
+});
+
+let shuttingDown = false;
+
+async function shutdown(signal: NodeJS.Signals) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  logStructured("worker.shutdown.start", { signal });
+
+  try {
+    await worker.close();
+  } catch (error) {
+    logStructured("worker.shutdown.worker_close_failed", {
+      signal,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+
+  try {
+    await queueEvents.close();
+  } catch (error) {
+    logStructured("worker.shutdown.queue_events_close_failed", {
+      signal,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+
+  try {
+    closeRedisClients();
+  } catch (error) {
+    logStructured("worker.shutdown.redis_close_failed", {
+      signal,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    logStructured("worker.shutdown.prisma_disconnect_failed", {
+      signal,
+      error: error instanceof Error ? error.message : "unknown"
+    });
+  }
+
+  logStructured("worker.shutdown.complete", { signal });
+  process.exit(0);
+}
+
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
 });
