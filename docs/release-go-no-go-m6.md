@@ -28,6 +28,10 @@ Required gate evidence is green from:
   - Message: `The job was not acquired by Runner of type hosted even after multiple attempts`
   - Overall run status in this window: `queued` (publish-evidence waiting for runner)
 - Policy note: this canary is optional and non-blocking for M6 GO decision.
+- Latest retry run:
+  - Run: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22744602874
+  - Workflow conclusion: `success`
+  - Canary result: `skipped_no_key` (`OPENAI_API_KEY` not configured)
 
 ## Risks
 1. External provider availability remains variable.
@@ -36,6 +40,7 @@ Required gate evidence is green from:
 ## Mitigations
 1. Keep mock path as mandatory gate for deterministic release closure.
 2. Retry canary in a new run after runner availability recovers; if still failed, create follow-up issue without reopening M6 GO.
+3. If real provider validation is required, configure `OPENAI_API_KEY` secret and rerun canary.
 
 ## Post-GO actions
 1. Keep `main` mirror-only and continue development on `work/main`.

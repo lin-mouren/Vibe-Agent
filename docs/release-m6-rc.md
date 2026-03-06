@@ -118,3 +118,11 @@ Or use built-in retry helper (handles transient dispatch 500 with backoff):
 ```bash
 pnpm release:rc:dispatch-retry -- --rc-tag rc/m6-20260306.2 --run-openai-canary true --attempts 6 --sleep-seconds 30
 ```
+
+### RC `rc/m6-20260306.3` (canary retry completed)
+- RC tag: `rc/m6-20260306.3` (not created yet)
+- Workflow run URL: https://github.com/lin-mouren/Vibe-Agent/actions/runs/22744602874
+- Workflow status: `success`
+- Evidence artifact name: `release-evidence-rc-m6-20260306.3`
+- Optional canary status: `skipped_no_key` (annotation: `OPENAI_API_KEY is missing, skip OpenAI canary.`)
+- Required gates: all pass
